@@ -34,9 +34,15 @@ def init_db(config: dict) -> None:
     # Seed the single SystemState row if it does not exist yet
     with _SessionFactory() as session:
         if session.get(SystemState, 1) is None:
-            session.add(SystemState(id=1, last_inventory_reload=datetime(1970, 1, 1)))
-            session.commit()
-            logger.info("SystemState row seeded.")
+            try:
+                session.add(SystemState(id=1, last_inventory_reload=datetime(1970, 1, 1)))
+                session.commit()
+                logger.info("SystemState row seeded.")
+            except IntegrityError:
+                # Race condition: another process seeded the row between our
+                # check and our INSERT - safe to continue.
+                session.rollback()
+                logger.warning("SystemState row already seeded by another process; continuing.")
 
     logger.info("Database initialised: %s", engine.url.render_as_string(hide_password=True))
 

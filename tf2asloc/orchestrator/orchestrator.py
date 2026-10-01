@@ -117,6 +117,10 @@ def _persist_results(
         key = (pick_obj.network, pick_obj.station, pick_obj.phase.upper())
         picks_by_key.setdefault(key, []).append((pick_obj.time, pick_obj))
 
+    # Events persisted this run, and events that lost picks to re-linking
+    touched_event_ids: set = set()
+    stripped_event_ids: set = set()
+
     for _, crow in cat_df.iterrows():
         event_rid = crow.get("resource_id", "")
         if not event_rid:
@@ -147,6 +151,8 @@ def _persist_results(
             # Accepted refinement: its score is the new baseline for the
             # churn guard (the summary is updated below, quality permitting)
             event_obj.gamma_score = gscore
+
+        touched_event_ids.add(event_obj.id)
 
         # Origins for this event
         matched_locs = [lr for lr in location_rows if lr.get("event_resource_id") == event_rid]
@@ -251,6 +257,8 @@ def _persist_results(
             if pick_resource_id not in picks_map:
                 continue
             pick_obj = picks_map[pick_resource_id]
+            if pick_obj.event_id is not None and pick_obj.event_id != event_obj.id:
+                stripped_event_ids.add(pick_obj.event_id)
             pick_obj.event_id = event_obj.id
 
             ampl = arow.get("amplitude")
@@ -275,6 +283,54 @@ def _persist_results(
                 existing_amp.value = float(ampl)
 
     session.flush()
+    _cleanup_husk_events(session, stripped_event_ids - touched_event_ids, config)
+
+
+def _cleanup_husk_events(session, candidate_ids: set, config: dict) -> None:
+    """Delete events stripped below the per-phase pick minimums.
+
+    Overlapping re-association runs re-link each pick to the newest solution
+    that claims it.  When clustering jitter puts that solution outside the
+    dedup tolerances, it is persisted as a new event and *steals* the picks,
+    leaving the old event as a husk: origins and magnitudes intact but no
+    longer supported by data.  Such events are removed here.  Picks are never
+    deleted - any leftover picks still linked to a husk are returned to the
+    unassociated pool (event_id = NULL).
+    """
+    if not candidate_ids:
+        return
+    gc = config["gamma"]
+    min_p = int(gc.get("min_p_picks_per_eq", 3))
+    min_s = int(gc.get("min_s_picks_per_eq", 2))
+    n_deleted = 0
+    for ev_id in candidate_ids:
+        event_obj = session.get(Event, ev_id)
+        if event_obj is None:
+            continue
+        phases = [(p.phase or "").lower() for p in event_obj.picks]
+        n_p = sum(1 for ph in phases if ph.startswith("p"))
+        n_s = sum(1 for ph in phases if ph.startswith("s"))
+        if n_p >= min_p and n_s >= min_s:
+            continue
+        for orig in event_obj.origins:
+            for arr in orig.arrivals:
+                session.delete(arr)
+            session.delete(orig)
+        for mag in event_obj.magnitudes:
+            session.delete(mag)
+        for amp in event_obj.amplitudes:
+            session.delete(amp)
+        for pick_obj in event_obj.picks:
+            pick_obj.event_id = None
+        session.delete(event_obj)
+        n_deleted += 1
+    if n_deleted:
+        session.flush()
+        logger.info(
+            "Husk cleanup: deleted %d event(s) stripped below phase minimums "
+            "(picks reassigned to newer solutions).",
+            n_deleted,
+        )
 
 
 def run(config: dict) -> None:

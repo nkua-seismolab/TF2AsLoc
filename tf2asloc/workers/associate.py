@@ -234,4 +234,31 @@ def run_association(
 
     assign_df = assign_df[assign_df["event_idx"].isin(cat_df["event_index"])].copy()
 
+    # --- Per-phase minimum pick counts ---
+    # GaMMA only honors min_picks_per_eq; min_p_picks_per_eq and
+    # min_s_picks_per_eq are silently ignored by it, so enforce them here.
+    gc = config["gamma"]
+    min_p = int(gc.get("min_p_picks_per_eq", 3))
+    min_s = int(gc.get("min_s_picks_per_eq", 2))
+    if min_p > 0 or min_s > 0:
+        pick_types = assign_df["pick_idx"].map(df["type"])
+        p_counts = assign_df[pick_types == "p"].groupby("event_idx").size()
+        s_counts = assign_df[pick_types == "s"].groupby("event_idx").size()
+        keep = cat_df["event_index"][
+            (cat_df["event_index"].map(p_counts).fillna(0) >= min_p)
+            & (cat_df["event_index"].map(s_counts).fillna(0) >= min_s)
+        ]
+        n_dropped = len(cat_df) - len(keep)
+        if n_dropped:
+            logger.info(
+                "Phase-count filter: %d event(s) dropped (require >=%d P and >=%d S picks).",
+                n_dropped,
+                min_p,
+                min_s,
+            )
+        cat_df = cat_df[cat_df["event_index"].isin(keep)].copy()
+        if cat_df.empty:
+            return pd.DataFrame(), pd.DataFrame()
+        assign_df = assign_df[assign_df["event_idx"].isin(keep)].copy()
+
     return cat_df, assign_df

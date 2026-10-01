@@ -55,6 +55,9 @@ cp config.example.yaml config.yaml
 
 Inside Docker Compose, `database.host`/`database.port` must point at the Compose Postgres service (`tf2asloc_db:5432` by default). If you change database host / port in `docker-compose.yml` or you want to use your own PostgreSQL installation, make sure to change this setting. Every parameter is documented in the [Configuration Reference](configuration.md).
 
+!!! note "Port conflicts on the host"
+    If port `8000` (API) or `5452` (PostgreSQL) is already in use on your machine, change only the **host side** of the mapping in `docker-compose.yml` (e.g. `"8010:8000"`) and use that port in your requests. Do **not** change `api.port` or `database.port` in `config.yaml` - those are the container-internal ports, which are isolated from the host and cannot conflict.
+
 ### 4. Provide the metadata files
 
 The service will not run without four external input files placed under `metadata/` - a StationXML inventory, station selection CSVs, a 1D velocity model, and a HypoInverse parameter file. See [Metadata Files](metadata.md).

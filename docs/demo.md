@@ -36,6 +36,7 @@ cp tf2asloc_demo_dataset/config.yaml config.yaml
     - `database.host` / `database.port` - must match your deployment (`tf2asloc_db:5432` for the default Compose stack);
     - `global.fdsn_ws_clients` - the `NOA` and `EPOSFR` FDSN services must be reachable from your machine for waveform retrieval during magnitude calculation;
     - `orchestrator.replay` - ships as `true`, so the pick window is driven by the pick timestamps rather than the wall clock. This is required for the historical demo picks.
+    - `orchestrator.window_sec` - ships as `86000` (~24 h), so a single association run covers the whole demo day and all picks are associated immediately after posting. If you build your config from `config.example.yaml` instead, its real-time default (`window_sec: 30`) will still process everything in replay mode, but gradually, window by window.
 
 ## 3. Start the stack
 

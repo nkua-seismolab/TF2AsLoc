@@ -1,4 +1,4 @@
-# TF2AsLoc configuration file - copy to config.yaml and edit for your deployment.
+# TF2AsLoc configuration file (copy to config.yaml and edit for your deployment)
 # Full parameter reference: docs/configuration.md
 
 # ---------------------------------------------------------------------------
@@ -6,8 +6,8 @@
 # ---------------------------------------------------------------------------
 database:
   # Credentials and DB name come from POSTGRES_* variables in .env
-  host: "localhost"
-  port: 5452
+  host: "tf2asloc_db"
+  port: 5432
 
 # ---------------------------------------------------------------------------
 # API
@@ -22,31 +22,31 @@ api:
 # GLOBAL / NETWORK
 # ---------------------------------------------------------------------------
 global:
-  # Authority for QuakeML smi: publicIDs, e.g. your institution's domain
-  smi_authority: "local"
   # Agency code used in resource IDs and QuakeML author fields
   agency: "nkua"
   # Region label used in resource IDs
   region: "crl"
+  # Authority for QuakeML smi: publicIDs, e.g. your institution's domain
+  smi_authority: "nkua-sl"
   # StationXML inventory filename (in metadata/)
   inventory: "inventory/eida_greece_stations_response.xml"
-  # FDSN-WS client URLs for inventory and waveform retrieval (semicolon-separated)
+  # FDSN-WS client URLs for inventory and waveform retrieval (single string, semicolon-separated)
   fdsn_ws_clients: "NOA; EPOSFR"
-  # Station selection CSVs in metadata/ - one per client above (semicolon-separated)
-  csvfiles: "stations/eida_noa_stations_list.csv; stations/eida_eposfr_stations_list.csv"
+  # Station selection CSVs in metadata/ - one per client above (single string, semicolon-separated)
+  csvfiles: "stations/eida_noa_stations_list.csv;stations/eida_eposfr_stations_list.csv"
   # Max retries for FDSN-WS requests on transient failures
-  max_retries: 100
+  max_retries: 5
   # Delay (seconds) between FDSN-WS retries
-  retry_delay: 15
+  retry_delay: 3
 
 # ---------------------------------------------------------------------------
 # ASSOCIATOR - GaMMA
 # ---------------------------------------------------------------------------
 associator:
   # Minimum P-pick probability to include in association
-  p_min_prob: 0.30
+  p_min_prob: 0.10
   # Minimum S-pick probability to include in association
-  s_min_prob: 0.30
+  s_min_prob: 0.10
 
   # Broad bounding box - must encompass all stations
   latmin: 37.80
@@ -73,13 +73,13 @@ associator:
   pwgt2: 0.2
   pwgt3: 0.1
   # S pick-probability -> HypoInverse weight thresholds
-  swgt0: 0.95
+  swgt0: 0.9
   swgt1: 0.6
   swgt2: 0.3
   swgt3: 0.1
 
   # Reconciliation: max origin-time offset (s) to match a previously located event
-  event_match_time_tol: 30
+  event_match_time_tol: 5
   # Reconciliation: max epicentre offset (degrees)
   event_match_coord_tol: 0.02
 
@@ -91,7 +91,7 @@ gamma:
   projection: 2100
 
   # Use Eikonal travel times from velmodel (false = homogeneous pvel/vpvs)
-  use_eikonal: true
+  use_eikonal: false
   # Velocity model filename in metadata/ (HypoInverse .crh format)
   velmodel: "hinv/model_rigo1996.crh"
   # Grid spacing (km) for Eikonal interpolation
@@ -106,7 +106,7 @@ gamma:
   method: "BGMM"
   oversample_factor: 4
   # CPUs for GaMMA's internal pool (see docs note on multiprocessing)
-  ncpu: 1
+  ncpu: 4
 
   # DBSCAN: max time between picks in the same cluster (s)
   dbscan_eps: 10
@@ -133,7 +133,7 @@ magnitude:
   # Bulk-download chunks per worker
   par_chunks: 1
   # Stations per bulk-download chunk
-  chunksize: 12
+  chunksize: 8
 
   # Waveform extraction: seconds before earliest pick in event
   tbef: 30
@@ -154,9 +154,9 @@ magnitude:
   water_level: 60
 
   # Max wait (s) for FDSN waveform availability before skipping an event's magnitude
-  max_waveform_wait_sec: 90
+  max_waveform_wait_sec: 30
 
-  # ML formula coefficients (Scordilis et al., 2012 - see docs/configuration.md)
+  # ML formula coefficients (Scordilis et al., 2013 - see docs/configuration.md)
   mag_n: 1.2614
   mag_K: 0.0031
   mag_c: 0.9043
@@ -184,11 +184,11 @@ locator:
 # ---------------------------------------------------------------------------
 orchestrator:
   # Sliding pick window width (seconds) - each run looks back this far
-  window_sec: 30
+  window_sec: 300
   # Extra look-back safety buffer (seconds) on top of window_sec
-  overlap_sec: 5
+  overlap_sec: 10
   # Seconds between association runs - keep well below window_sec
-  interval_sec: 10
+  interval_sec: 60
   # Reload StationXML from FDSN-WS every N hours
   inventory_refresh_hours: 24
   # Duplicate-event threshold: max origin-time offset (s)
@@ -197,5 +197,5 @@ orchestrator:
   dedup_dist_km: 10
   # Drive the window from pick timestamps instead of wall clock (for backfill)
   replay: false
-  # Also consume picks already in the DB from this UTC instant (remove once backfill is done)
+  # Also consume picks already in the DB from this UTC instant (remove/comment once backfill is done)
   # session_epoch: "2026-08-27T22:00:00"

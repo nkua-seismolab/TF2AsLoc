@@ -800,7 +800,12 @@ def _create_pick_and_amplitude(
                 prefix = f"{si['network_code']}.{si['station_code']}."
                 sel = prows[prows["id"].str.startswith(prefix) & (prows["type"] == phase.lower())]
             if len(sel) > 1:
-                dt = (pd.to_datetime(sel["timestamp"]) - pd.Timestamp(pick_time.datetime)).abs()
+                # format="ISO8601" tolerates mixed precision: isoformat()
+                # omits microseconds entirely when they are zero
+                dt = (
+                    pd.to_datetime(sel["timestamp"], format="ISO8601")
+                    - pd.Timestamp(pick_time.datetime)
+                ).abs()
                 sel = sel.loc[[dt.idxmin()]]
             if not sel.empty:
                 src = sel.iloc[0]
