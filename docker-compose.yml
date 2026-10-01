@@ -1,0 +1,96 @@
+services:
+
+  database:
+    image: postgres:17.0
+    container_name: tf2asloc_db
+    restart: unless-stopped
+    env_file:
+      - ".env"
+    environment:
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    volumes:
+      - ./database/pg_data:/var/lib/postgresql/data
+    ports:
+      - "5452:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-tf2asloc}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    command: >
+      postgres
+      -c shared_preload_libraries=pg_stat_statements
+      -c max_connections=100
+      -c shared_buffers=256MB
+      -c effective_cache_size=1GB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+
+  tf2asloc-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.tf2asloc
+    container_name: tf2asloc_api
+    restart: unless-stopped
+    command: ["python", "-m", "tf2asloc.api"]
+    environment:
+      - TF2ASLOC_CONFIG=/app/config.yaml
+    env_file:
+      - ".env"
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - ./metadata:/app/metadata:ro
+    ports:
+      - "8000:8000"
+    depends_on:
+      database:
+        condition: service_healthy
+    # /health pings the DB, so this catches both a wedged server and lost
+    # DB connectivity (the image has no curl; use stdlib urllib).
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  tf2asloc-orchestrator:
+    build:
+      context: .
+      dockerfile: Dockerfile.tf2asloc
+    container_name: tf2asloc_orchestrator
+    restart: unless-stopped
+    command: ["python", "-m", "tf2asloc.orchestrator"]
+    environment:
+      - TF2ASLOC_CONFIG=/app/config.yaml
+      # Cap BLAS/OpenMP thread pools to 1 to avoid a fork-after-threading
+      # deadlock: numpy/scikit-learn (used by GaMMA's clustering/BGMM step)
+      # spin up multi-threaded native math libraries, and forking
+      # multiprocessing.Pool workers from a multi-threaded parent can leave a
+      # lock frozen in the child forever, hanging "Associating N clusters...".
+      - OMP_NUM_THREADS=1
+      - OPENBLAS_NUM_THREADS=1
+      - MKL_NUM_THREADS=1
+      - NUMEXPR_NUM_THREADS=1
+    env_file:
+      - ".env"
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - ./metadata:/app/metadata:ro
+    depends_on:
+      database:
+        condition: service_healthy
+    # Marks the container unhealthy if the orchestrator loop stops beating
+    # (hangs don't exit, so the restart policy alone cannot catch them).
+    # 900 s tolerates the slowest legitimate tick (waveform waits included).
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os,sys,time; sys.exit(0 if time.time()-os.path.getmtime('/tmp/orchestrator_heartbeat')<900 else 1)"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 120s

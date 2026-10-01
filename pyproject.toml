@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "TF2AsLoc"
+version = "1.0.0"
+description = "TRANSFORM2 Associator-Locator: near real-time seismic association and location"
+authors = [
+    { name = "Vasilis Kapetanidis", email = "vkapetan@geol.uoa.gr"},
+    { name = "Ioannis Spingos", email = "ispingos@geol.uoa.gr" },
+    { name = "Angelos Zymvragakis", email = "azymvragakis@geol.uoa.gr" },
+    { name = "George Kaviris", email = "gkaviris@geol.uoa.gr"}
+]
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.100",
+    "uvicorn[standard]>=0.24.0",
+    "sqlalchemy>=2.0",
+    "psycopg2-binary",
+    "pydantic>=2.0",
+    "pyyaml>=6.0",
+    "obspy>=1.4.0",
+    "numpy>=1.24.0",
+    "pandas>=2.0.0",
+    "scipy>=1.11.0",
+    "pyproj>=3.6.0",
+    "tqdm",
+]
+
+[project.scripts]
+tf2asloc-api = "tf2asloc.api.__main__:main"
+tf2asloc-orchestrator = "tf2asloc.orchestrator.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["tf2asloc*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["legacy", "database"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort (import ordering)
+    "UP",  # pyupgrade (modern syntax)
+    "B",   # flake8-bugbear (likely bugs)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["tf2asloc"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI dependency-injection idiom uses calls in defaults
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Header"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

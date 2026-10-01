@@ -1,0 +1,67 @@
+# =============================================================================
+# Stage 1 - Builder: compile HypoInverse from Fortran source
+# =============================================================================
+FROM debian:bookworm-slim AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        gfortran \
+        wget \
+        make \
+        ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+
+# Download HypoInverse v1.40 source tarball from USGS
+RUN wget -q https://escweb.wr.usgs.gov/content/software/HYPOINVERSE/hyp1.40.tar \
+    && tar -xf hyp1.40.tar
+
+# Build using the Makefile inside source/:
+# Edit 1. Replace obsolete g77 compiler with gfortran
+# Edit 2. Redirect hardcoded NCSN install path to /build
+RUN cd source \
+    && sed -i \
+        -e 's/\bg77\b/gfortran/g' \
+        -e 's|/home/calnet/klein/bin|/build|g' \
+        makefile \
+    && make
+
+# =============================================================================
+# Stage 2 - Production: slim Python 3.12 image
+# =============================================================================
+FROM python:3.12-slim AS production
+
+# Copy only the compiled binary from the builder stage.
+# The Makefile names the binary "hyp1.40"; we install it as "hypoinverse".
+COPY --from=builder /build/hyp1.40 /usr/local/bin/hypoinverse
+RUN chmod +x /usr/local/bin/hypoinverse
+
+# System dependencies required by psycopg2 and ObsPy
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libpq5 \
+        libgfortran5 \
+        git \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install Python dependencies
+COPY pyproject.toml ./
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir .
+
+# Install GaMMA (no PyPI release - install from source)
+RUN pip install --no-cache-dir "git+https://github.com/AI4EPS/GaMMA.git"
+
+# Patch GaMMA to use the spawn multiprocessing context, instead of fork, to avoid
+# freezes (condition met during testing).
+RUN GAMMA_UTILS=$(python -c "import gamma.utils, inspect; print(inspect.getfile(gamma.utils))") \
+    && sed -i 's/context = "fork"/context = "spawn"/' "$GAMMA_UTILS" \
+    && grep -q 'context = "spawn"' "$GAMMA_UTILS"
+
+# Copy application source
+COPY tf2asloc/ ./tf2asloc/
+COPY config.example.yaml ./
+
+# Default command - overridden per service in docker-compose.yml
+CMD ["python", "-m", "tf2asloc.api"]

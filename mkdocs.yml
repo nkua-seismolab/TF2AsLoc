@@ -1,0 +1,50 @@
+site_name: TF2AsLoc
+site_description: "TRANSFORM2 Associator-Locator: near real-time seismic association and location"
+repo_url: https://github.com/nkua-seismolab/TF2AsLoc
+docs_dir: docs
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: blue grey
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: blue grey
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+extra_javascript:
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+
+nav:
+  - Home: index.md
+  - Installation & Requirements: installation.md
+  - Quick Start: quickstart.md
+  - Configuration Reference: configuration.md
+  - Metadata Files: metadata.md
+  - API Usage: api.md
+  - Helper Scripts: scripts.md
+  - Demo Walkthrough: demo.md
+  - Customizations: customizations.md
