@@ -1,0 +1,46 @@
+{
+  "title": "TF2AsLoc",
+  "upload_type": "software",
+  "version": "1.0.0",
+  "access_right": "open",
+  "license": "gpl-3.0-only",
+  "language": "eng",
+  "keywords": [
+    "Geophysics",
+    "Seismology",
+    "Phase association",
+    "Earthquake location"
+  ],
+  "creators": [
+    {
+      "name": "Kapetanidis, Vasilis",
+      "affiliation": "National and Kapodistrian University of Athens",
+      "orcid": "0000-0002-7811-1216"
+    },
+    {
+      "name": "Spingos, Ioannis",
+      "affiliation": "National and Kapodistrian University of Athens",
+      "orcid": "0000-0002-5850-5736"
+    },
+    {
+      "name": "Zymvragakis, Angelos",
+      "affiliation": "National and Kapodistrian University of Athens",
+      "orcid": "0000-0002-6140-0652"
+    },
+    {
+      "name": "Kaviris, George",
+      "affiliation": "National and Kapodistrian University of Athens",
+      "orcid": "0000-0001-8956-4299"
+    }
+  ],
+  "communities": [
+    {
+      "identifier": "transform2-project"
+    }
+  ],
+  "grants": [
+    {
+      "id": "00k4n6c32::101188365"
+    }
+  ]
+}
